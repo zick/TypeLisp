@@ -203,9 +203,59 @@ function eval1(obj: LObj, env: LObj) {
     }
     return bind.cdr;
   }
+
+  var op = safeCar(obj);
+  var args = safeCdr(obj);
+  if (op == makeSym('quote')) {
+    return safeCar(args);
+  } else if (op == makeSym('if')) {
+    if (eval1(safeCar(args), env) == kNil) {
+      return eval1(safeCar(safeCdr(safeCdr(args))), env);
+    }
+    return eval1(safeCar(safeCdr(args)), env);
+  }
+  return apply(eval1(op, env), evlis(args, env), env);
+}
+
+function evlis(lst: LObj, env: LObj) {
+  var ret = kNil;
+  while (lst.tag == 'cons') {
+    var elm = eval1(lst.car, env);
+    if (elm.tag == 'error') {
+      return elm;
+    }
+    ret = makeCons(elm, ret);
+    lst = lst.cdr;
+  }
+  return nreverse(ret);
+}
+
+function apply(fn: LObj, args: LObj, env: LObj) {
+  if (fn.tag == 'error') {
+    return fn;
+  } else if (args.tag == 'error') {
+    return args;
+  } else if (fn.tag == 'subr') {
+    return fn.fn(args);
+  }
   return makeError('noimpl');
 }
 
+function subrCar(args: LObj) {
+  return safeCar(safeCar(args));
+}
+
+function subrCdr(args: LObj) {
+  return safeCdr(safeCar(args));
+}
+
+function subrCons(args: LObj) {
+  return makeCons(safeCar(args), safeCar(safeCdr(args)));
+}
+
+addToEnv(makeSym('car'), makeSubr(subrCar), g_env);
+addToEnv(makeSym('cdr'), makeSubr(subrCdr), g_env);
+addToEnv(makeSym('cons'), makeSubr(subrCons), g_env);
 addToEnv(makeSym('t'), makeSym('t'), g_env);
 
 declare var process;
