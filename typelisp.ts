@@ -173,11 +173,46 @@ function printList(obj: LObj) {
   return '(' + ret + ' . ' + printObj(obj) + ')'
 }
 
+function findVar(sym: LObj, env: LObj) {
+  while (env.tag == 'cons') {
+    var alist = env.car;
+    while (alist.tag == 'cons') {
+      if (alist.car.car == sym) {
+        return alist.car;
+      }
+      alist = alist.cdr;
+    }
+    env = env.cdr;
+  }
+  return kNil;
+}
+
+var g_env = makeCons(kNil, kNil);
+
+function addToEnv(sym: LObj, val: LObj, env: LObj) {
+  env.car = makeCons(makeCons(sym, val), env.car);
+}
+
+function eval1(obj: LObj, env: LObj) {
+  if (obj.tag == 'nil' || obj.tag == 'num' || obj.tag == 'error') {
+    return obj;
+  } else if (obj.tag == 'sym') {
+    var bind = findVar(obj, env);
+    if (bind == kNil) {
+      return makeError(obj.str + ' has no value');
+    }
+    return bind.cdr;
+  }
+  return makeError('noimpl');
+}
+
+addToEnv(makeSym('t'), makeSym('t'), g_env);
+
 declare var process;
 var stdin = process.openStdin();
 stdin.setEncoding('utf8');
 process.stdout.write('> ');
 stdin.on('data', function (input) {
-  console.log(printObj(read(input).e));
+  console.log(printObj(eval1(read(input).e, g_env)));
   process.stdout.write('> ');
 });
