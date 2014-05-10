@@ -291,9 +291,83 @@ function subrCons(args: LObj) {
   return makeCons(safeCar(args), safeCar(safeCdr(args)));
 }
 
+function subrEq(args: LObj) {
+  var x = safeCar(args);
+  var y = safeCar(safeCdr(args));
+  if (x.tag == 'num' && y.tag == 'num') {
+    if (x.num == y.num) {
+      return makeSym('t');
+    }
+    return kNil;
+  } else if (x == y) {
+    return makeSym('t');
+  }
+  return kNil;
+}
+
+function subrAtom(args: LObj) {
+  if (safeCar(args).tag == 'cons') {
+    return kNil;
+  }
+  return makeSym('t');
+}
+
+function subrNumberp(args: LObj) {
+  if (safeCar(args).tag == 'num') {
+    return makeSym('t');
+  }
+  return kNil;
+}
+
+function subrSymbolp(args: LObj) {
+  if (safeCar(args).tag == 'sym') {
+    return makeSym('t');
+  }
+  return kNil;
+}
+
+function subrAddOrMul(fn: (x: number, y: number) => number, init_val: number) {
+  return function(args: LObj): LObj {
+    var ret = init_val;
+    while (args.tag == 'cons') {
+      if (args.car.tag != 'num') {
+        return makeError('wrong type');
+      }
+      ret = fn(ret, args.car.num);
+      args = args.cdr
+    }
+    return makeNum(ret);
+  }
+}
+var subrAdd = subrAddOrMul(function(x, y){ return x + y; }, 0);
+var subrMul = subrAddOrMul(function(x, y){ return x * y; }, 1);
+
+function subrSubOrDivOrMod(fn: (x: number, y: number) => number) {
+  return function(args: LObj): LObj {
+    var x = safeCar(args);
+    var y = safeCar(safeCdr(args));
+    if (x.tag != 'num' || y.tag != 'num') {
+      return makeError('wrong type');
+    }
+    return makeNum(fn(x.num, y.num));
+  }
+}
+var subrSub = subrSubOrDivOrMod(function(x, y){ return x - y; });
+var subrDiv = subrSubOrDivOrMod(function(x, y){ return x / y; });
+var subrMod = subrSubOrDivOrMod(function(x, y){ return x % y; });
+
 addToEnv(makeSym('car'), makeSubr(subrCar), g_env);
 addToEnv(makeSym('cdr'), makeSubr(subrCdr), g_env);
 addToEnv(makeSym('cons'), makeSubr(subrCons), g_env);
+addToEnv(makeSym('eq'), makeSubr(subrEq), g_env);
+addToEnv(makeSym('atom'), makeSubr(subrAtom), g_env);
+addToEnv(makeSym('numberp'), makeSubr(subrNumberp), g_env);
+addToEnv(makeSym('symbolp'), makeSubr(subrSymbolp), g_env);
+addToEnv(makeSym('+'), makeSubr(subrAdd), g_env);
+addToEnv(makeSym('*'), makeSubr(subrMul), g_env);
+addToEnv(makeSym('-'), makeSubr(subrSub), g_env);
+addToEnv(makeSym('/'), makeSubr(subrDiv), g_env);
+addToEnv(makeSym('mod'), makeSubr(subrMod), g_env);
 addToEnv(makeSym('t'), makeSym('t'), g_env);
 
 declare var process;
