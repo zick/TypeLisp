@@ -13,7 +13,7 @@ interface LObj {
 var kLPar = '(';
 var kRPar = ')';
 var kQuote = "'";
-var kNil = { tag: "nil", str: "nil" };
+var kNil: LObj = { tag: "nil", str: "nil" };
 
 function safeCar(obj: LObj) {
   if (obj.tag == 'cons') {
@@ -60,6 +60,17 @@ function makeExpr(args: LObj, env: LObj) {
   return { tag: 'expr', args: safeCar(args), body: safeCdr(args), env: env };
 }
 
+function nreverse(lst: LObj) {
+  var ret = kNil;
+  while (lst.tag == 'cons') {
+    var tmp = lst.cdr;
+    lst.cdr = ret;
+    ret = lst;
+    lst = tmp;
+  }
+  return ret;
+}
+
 function isDelimiter (c: string) {
   return c == kLPar || c == kRPar || c == kQuote || /\s+/.test(c);
 }
@@ -76,6 +87,11 @@ function makeNumOrSym(str: string) {
   return makeSym(str);
 }
 
+interface Rpair {
+  e: LObj;
+  n: string;
+}
+
 function readAtom(str: string) {
   var next = ''
   for (var i = 0; i < str.length; i++) {
@@ -85,21 +101,76 @@ function readAtom(str: string) {
       break;
     }
   }
-  return [makeNumOrSym(str), next];
+  return {e: makeNumOrSym(str), n: next};
 }
 
-function read(str: string) {
+function read(str: string): Rpair {
   var str = skipSpaces(str);
   if (str == '') {
-    return [makeError('empty input'), ''];
+    return {e: makeError('empty input'), n: ''};
   } else if (str[0] == kRPar) {
-    return [makeError('invalid syntax: ' + str), ''];
+    return {e: makeError('invalid syntax: ' + str), n: ''};
   } else if (str[0] == kLPar) {
-    return [makeError('noimpl'), ''];
+    return readList(str.substring(1));
   } else if (str[0] == kQuote) {
-    return [makeError('noimpl'), ''];
+    var tmp = read(str.substring(1));
+    return {e: makeCons(makeSym('quote'), makeCons(tmp.e, kNil)), n: tmp.n};
   }
   return readAtom(str);
+}
+
+function readList(str: string) {
+  var ret = kNil;
+  while (true) {
+    str = skipSpaces(str);
+    if (str.length == 0) {
+      return {e: makeError('unfinished parenthesis'), n: ''};
+    } else if (str[0] == kRPar) {
+      break;
+    }
+    var tmp = read(str);
+    var elm = tmp.e
+    var next = tmp.n
+    if (elm.tag == 'error') {
+      return {e: elm, n: ''};
+    }
+    ret = makeCons(elm, ret);
+    str = next;
+  }
+  return {e: nreverse(ret), n: str.substring(1)};
+}
+
+function printObj(obj: LObj) {
+  if (obj.tag == 'num') {
+    return obj.num.toString();
+  } else if (obj.tag == 'sym' || obj.tag == 'nil') {
+    return obj.str;
+  } else if (obj.tag == 'error') {
+    return '<error: ' + obj.str + '>';
+  } else if (obj.tag == 'cons') {
+    return printList(obj);
+  } else if (obj.tag == 'subr' || obj.tag == 'expr') {
+    return '<' + obj.tag + '>';
+  }
+  return '<unknown>';
+}
+
+function printList(obj: LObj) {
+  var ret = '';
+  var first = true;
+  while (obj.tag == 'cons') {
+    if (first) {
+      first = false;
+    } else {
+      ret += ' ';
+    }
+    ret += printObj(obj.car);
+    obj = obj.cdr;
+  }
+  if (obj.tag == 'nil') {
+    return '(' + ret + ')'
+  }
+  return '(' + ret + ' . ' + printObj(obj) + ')'
 }
 
 declare var process;
@@ -107,6 +178,6 @@ var stdin = process.openStdin();
 stdin.setEncoding('utf8');
 process.stdout.write('> ');
 stdin.on('data', function (input) {
-  console.log(read(input));
+  console.log(printObj(read(input).e));
   process.stdout.write('> ');
 });
