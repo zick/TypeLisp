@@ -71,6 +71,16 @@ function nreverse(lst: LObj) {
   return ret;
 }
 
+function pairlis(lst1: LObj, lst2: LObj) {
+  var ret = kNil;
+  while (lst1.tag == 'cons' && lst2.tag == 'cons') {
+    ret = makeCons(makeCons(lst1.car, lst2.car), ret);
+    lst1 = lst1.cdr;
+    lst2 = lst2.cdr;
+  }
+  return nreverse(ret);
+}
+
 function isDelimiter (c: string) {
   return c == kLPar || c == kRPar || c == kQuote || /\s+/.test(c);
 }
@@ -213,6 +223,8 @@ function eval1(obj: LObj, env: LObj) {
       return eval1(safeCar(safeCdr(safeCdr(args))), env);
     }
     return eval1(safeCar(safeCdr(args)), env);
+  } else if (op == makeSym('lambda')) {
+    return makeExpr(args, env);
   }
   return apply(eval1(op, env), evlis(args, env), env);
 }
@@ -230,6 +242,15 @@ function evlis(lst: LObj, env: LObj) {
   return nreverse(ret);
 }
 
+function progn(body: LObj, env: LObj) {
+  var ret = kNil;
+  while (body.tag == 'cons') {
+    ret = eval1(body.car, env);
+    body = body.cdr;
+  }
+  return ret;
+}
+
 function apply(fn: LObj, args: LObj, env: LObj) {
   if (fn.tag == 'error') {
     return fn;
@@ -237,6 +258,8 @@ function apply(fn: LObj, args: LObj, env: LObj) {
     return args;
   } else if (fn.tag == 'subr') {
     return fn.fn(args);
+  } else if (fn.tag == 'expr') {
+    return progn(fn.body, makeCons(pairlis(fn.args, args), fn.env));
   }
   return makeError('noimpl');
 }
