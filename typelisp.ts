@@ -230,6 +230,16 @@ function eval1(obj: LObj, env: LObj) {
     var sym = safeCar(args);
     addToEnv(sym, expr, g_env);
     return sym;
+  } else if (op == makeSym('setq')) {
+    var val = eval1(safeCar(safeCdr(args)), env);
+    var sym = safeCar(args);
+    var bind = findVar(sym, env);
+    if (bind == kNil) {
+      addToEnv(sym, val, g_env);
+    } else {
+      bind.cdr = val;
+    }
+    return val;
   }
   return apply(eval1(op, env), evlis(args, env), env);
 }
