@@ -44,6 +44,13 @@ function makeSym(str: string) {
   return sym_table[str];
 }
 
+var sym_t = makeSym('t');
+var sym_quote = makeSym('quote');
+var sym_if = makeSym('if');
+var sym_lambda = makeSym('lambda');
+var sym_defun = makeSym('defun');
+var sym_setq = makeSym('setq');
+
 function makeNum(num: number) {
   return { tag: 'num', num: num };
 }
@@ -124,7 +131,7 @@ function read(str: string): Rpair {
     return readList(str.substring(1));
   } else if (str[0] == kQuote) {
     var tmp = read(str.substring(1));
-    return {e: makeCons(makeSym('quote'), makeCons(tmp.e, kNil)), n: tmp.n};
+    return {e: makeCons(sym_quote, makeCons(tmp.e, kNil)), n: tmp.n};
   }
   return readAtom(str);
 }
@@ -216,21 +223,21 @@ function eval1(obj: LObj, env: LObj) {
 
   var op = safeCar(obj);
   var args = safeCdr(obj);
-  if (op == makeSym('quote')) {
+  if (op == sym_quote) {
     return safeCar(args);
-  } else if (op == makeSym('if')) {
+  } else if (op == sym_if) {
     if (eval1(safeCar(args), env) == kNil) {
       return eval1(safeCar(safeCdr(safeCdr(args))), env);
     }
     return eval1(safeCar(safeCdr(args)), env);
-  } else if (op == makeSym('lambda')) {
+  } else if (op == sym_lambda) {
     return makeExpr(args, env);
-  } else if (op == makeSym('defun')) {
+  } else if (op == sym_defun) {
     var expr = makeExpr(safeCdr(args), env);
     var sym = safeCar(args);
     addToEnv(sym, expr, g_env);
     return sym;
-  } else if (op == makeSym('setq')) {
+  } else if (op == sym_setq) {
     var val = eval1(safeCar(safeCdr(args)), env);
     var sym = safeCar(args);
     var bind = findVar(sym, env);
@@ -296,11 +303,11 @@ function subrEq(args: LObj) {
   var y = safeCar(safeCdr(args));
   if (x.tag == 'num' && y.tag == 'num') {
     if (x.num == y.num) {
-      return makeSym('t');
+      return sym_t;
     }
     return kNil;
   } else if (x == y) {
-    return makeSym('t');
+    return sym_t;
   }
   return kNil;
 }
@@ -309,19 +316,19 @@ function subrAtom(args: LObj) {
   if (safeCar(args).tag == 'cons') {
     return kNil;
   }
-  return makeSym('t');
+  return sym_t;
 }
 
 function subrNumberp(args: LObj) {
   if (safeCar(args).tag == 'num') {
-    return makeSym('t');
+    return sym_t;
   }
   return kNil;
 }
 
 function subrSymbolp(args: LObj) {
   if (safeCar(args).tag == 'sym') {
-    return makeSym('t');
+    return sym_t;
   }
   return kNil;
 }
@@ -368,7 +375,7 @@ addToEnv(makeSym('*'), makeSubr(subrMul), g_env);
 addToEnv(makeSym('-'), makeSubr(subrSub), g_env);
 addToEnv(makeSym('/'), makeSubr(subrDiv), g_env);
 addToEnv(makeSym('mod'), makeSubr(subrMod), g_env);
-addToEnv(makeSym('t'), makeSym('t'), g_env);
+addToEnv(sym_t, sym_t, g_env);
 
 declare var process;
 var stdin = process.openStdin();
