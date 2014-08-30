@@ -50,6 +50,9 @@ var sym_if = makeSym('if');
 var sym_lambda = makeSym('lambda');
 var sym_defun = makeSym('defun');
 var sym_setq = makeSym('setq');
+var sym_loop = makeSym('loop');
+var sym_return = makeSym('return');
+var loop_val = kNil;
 
 function makeNum(num: number) {
   return { tag: 'num', num: num };
@@ -226,7 +229,10 @@ function eval1(obj: LObj, env: LObj) {
   if (op == sym_quote) {
     return safeCar(args);
   } else if (op == sym_if) {
-    if (eval1(safeCar(args), env) == kNil) {
+    var c = eval1(safeCar(args), env);
+    if (c.tag == 'error') {
+      return c;
+    } else if (c == kNil) {
       return eval1(safeCar(safeCdr(safeCdr(args))), env);
     }
     return eval1(safeCar(safeCdr(args)), env);
@@ -239,6 +245,9 @@ function eval1(obj: LObj, env: LObj) {
     return sym;
   } else if (op == sym_setq) {
     var val = eval1(safeCar(safeCdr(args)), env);
+    if (val.tag == 'error') {
+      return val;
+    }
     var sym = safeCar(args);
     var bind = findVar(sym, env);
     if (bind == kNil) {
@@ -247,6 +256,11 @@ function eval1(obj: LObj, env: LObj) {
       bind.cdr = val;
     }
     return val;
+  } else if (op == sym_loop) {
+    return loop(args, env);
+  } else if (op == sym_return) {
+    loop_val = eval1(safeCar(args), env);
+    return makeError('');
   }
   return apply(eval1(op, env), evlis(args, env), env);
 }
@@ -268,9 +282,24 @@ function progn(body: LObj, env: LObj) {
   var ret = kNil;
   while (body.tag == 'cons') {
     ret = eval1(body.car, env);
+    if (ret.tag == 'error') {
+      return ret;
+    }
     body = body.cdr;
   }
   return ret;
+}
+
+function loop(body: LObj, env: LObj) {
+  while (true) {
+    var ret = progn(body, env);
+    if (ret.tag == 'error') {
+      if (ret.str == '') {
+        return loop_val;
+      }
+      return ret;
+    }
+  }
 }
 
 function apply(fn: LObj, args: LObj, env: LObj) {
